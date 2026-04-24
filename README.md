@@ -1,6 +1,6 @@
 # Clean Architecture: Notification Pattern
 
-Implementação do **Notification Pattern** para validação de entidades de domínio, seguindo os princípios de Clean Architecture.
+Implementação do **Notification Pattern** para validação de entidades de domínio, seguindo os princípios de Clean Architecture, com validação do Product usando **Yup**.
 
 ## Notification Pattern
 
@@ -8,32 +8,29 @@ O Notification Pattern permite acumular múltiplos erros de validação antes de
 
 ### Componentes
 
-| Componente        | Arquivo                                                 | Descrição                                      |
-| ----------------- | ------------------------------------------------------- | ---------------------------------------------- |
-| NotificationError | `src/domain/@shared/notification/notification.error.ts` | Exceção customizada que agrupa múltiplos erros |
-| Entity (abstract) | `src/domain/@shared/entity/entity.abstract.ts`          | Classe base com sistema de notificação         |
-| Product           | `src/domain/product/entity/product.ts`                  | Entidade que implementa o padrão               |
+| Componente              | Arquivo                                                   | Descrição                                      |
+| ----------------------- | --------------------------------------------------------- | ---------------------------------------------- |
+| NotificationError       | `src/domain/@shared/notification/notification.error.ts`   | Exceção customizada que agrupa múltiplos erros |
+| Entity (abstract)       | `src/domain/@shared/entity/entity.abstract.ts`            | Classe base com sistema de notificação         |
+| Product                 | `src/domain/product/entity/product.ts`                    | Entidade que implementa o padrão               |
+| ProductValidatorFactory | `src/domain/product/factory/product.validator.factory.ts` | Fábrica que define o validador da entidade     |
+| ProductYupValidator     | `src/domain/product/validator/product.yup.validator.ts`   | Validador com schema Yup e coleta de erros     |
 
 ### Como funciona
 
 ```typescript
-// 1. A validação adiciona erros ao notification
+// 1. A entidade delega a validação para a fábrica de validadores
 validate(): void {
-  if (this._name.length === 0) {
-    this.notification.addError({
-      context: "product",
-      message: "Name is required",
-    });
-  }
-  if (this._price < 0) {
-    this.notification.addError({
-      context: "product",
-      message: "Price must be greater than zero",
-    });
-  }
+  ProductValidatorFactory.create().validate(this);
 }
 
-// 2. No construtor, após validar, lança exceção com todos os erros
+// 2. O schema Yup valida id, name e price (> 0)
+price: yup
+  .number()
+  .moreThan(0, "Price must be greater than zero")
+  .required(),
+
+// 3. No construtor, após validar, lança exceção com todos os erros
 if (this.notification.hasErrors()) {
   throw new NotificationError(this.notification.getErrors());
 }
@@ -43,6 +40,7 @@ if (this.notification.hasErrors()) {
 
 - **Múltiplos erros de uma vez**: O usuário vê todos os problemas, não apenas o primeiro
 - **Contexto nos erros**: Cada erro indica de qual entidade/contexto veio
+- **Regra explícita no schema**: preço deve ser estritamente maior que zero (`moreThan(0)`)
 - **Mensagem formatada**: `"product: Name is required,product: Price must be greater than zero"`
 
 ### Exemplo de teste
